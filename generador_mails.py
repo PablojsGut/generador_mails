@@ -74,3 +74,5 @@ frame_lista.pack(pady=10, fill="both", expand=True)
 mostrar_datos()
 
 root.mainloop()
+
+# pyinstaller --onefile --windowed generador_mails.py
