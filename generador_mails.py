@@ -3,38 +3,51 @@ import string
 import tkinter as tk
 from tkinter import messagebox
 from faker import Faker
+import unicodedata
 
 fake = Faker('es_ES')
 
 # Lista inicial de dominios válidos (sin example.com)
 dominios_validos = ["gmail.com", "hotmail.com", "yahoo.com", "outlook.com"]
 
-def generar_datos_ficticios(cantidad=10, excluir=None, dominio_extra=None, usar_punto=True):
+def quitar_tildes(texto):
+    # Normaliza el texto y elimina diacríticos (tildes, etc.)
+    nfkd = unicodedata.normalize('NFKD', texto)
+    return ''.join([c for c in nfkd if not unicodedata.combining(c)])
+
+def generar_datos_ficticios(cantidad=10, excluir=None, dominio_extra=None, usar_punto=True,
+                            usar_numero=True, usar_anio=False):
     datos = []
     dominios = dominios_validos.copy()
 
-    # Excluir dominios marcados
     if excluir:
         dominios = [d for d in dominios if d not in excluir]
 
-    # Agregar dominio extra
     if dominio_extra:
         dominios.append(dominio_extra.strip())
 
-    # Asegurar que haya al menos un dominio disponible
     if not dominios:
         dominios = ["gmail.com"]
 
     for _ in range(cantidad):
-        nombre = fake.first_name().lower()
-        apellido = fake.last_name().lower()
+        nombre = quitar_tildes(fake.first_name().lower())
+        apellido = quitar_tildes(fake.last_name().lower())
         separador = "." if usar_punto else ""
-        correo = f"{nombre}{separador}{apellido}{random.randint(1,999)}@{random.choice(dominios)}"
-        
+
+        # Generar sufijo (número y/o año) concatenados sin espacios
+        partes_sufijo = []
+        if usar_numero:
+            partes_sufijo.append(str(random.randint(1, 999)))
+        if usar_anio:
+            partes_sufijo.append(str(random.choice(range(1980, 2024))))
+        sufijo = "".join(partes_sufijo)
+
+        correo = f"{nombre}{separador}{apellido}{sufijo}@{random.choice(dominios)}"
+
         longitud_pwd = random.randint(8, 12)
         caracteres = string.ascii_letters + string.digits + "!@#$%^&*"
         password = ''.join(random.choice(caracteres) for _ in range(longitud_pwd))
-        
+
         datos.append((correo, password))
     return datos
 
@@ -45,7 +58,6 @@ def copiar_al_portapapeles(texto):
     messagebox.showinfo("Copiado", f"'{texto}' copiado al portapapeles")
 
 def mostrar_datos():
-    # Limpiar lista anterior
     for widget in frame_lista.winfo_children():
         widget.destroy()
 
@@ -54,13 +66,13 @@ def mostrar_datos():
     except ValueError:
         cantidad = 10
 
-    # Obtener dominios marcados para excluir
     excluir = [dominio for dominio, var in vars_dominios.items() if var.get()]
-
     dominio_extra = entry_extra.get().strip() or None
     usar_punto = bool(var_usar_punto.get())
+    usar_numero = bool(var_usar_numero.get())
+    usar_anio = bool(var_usar_anio.get())
 
-    datos = generar_datos_ficticios(cantidad, excluir, dominio_extra, usar_punto)
+    datos = generar_datos_ficticios(cantidad, excluir, dominio_extra, usar_punto, usar_numero, usar_anio)
 
     # Encabezados
     tk.Label(frame_lista, text="Sel.", font=("Arial", 10, "bold")).grid(row=0, column=0, padx=5)
@@ -83,7 +95,7 @@ def mostrar_datos():
 # --- Ventana principal ---
 root = tk.Tk()
 root.title("Generador de correos ficticios")
-root.geometry("750x600")
+root.geometry("800x650")
 
 frame_controles = tk.Frame(root)
 frame_controles.pack(pady=10)
@@ -95,7 +107,7 @@ entry_cantidad.grid(row=0, column=1, padx=5, sticky="w")
 entry_cantidad.insert(0, "10")
 
 # Checkboxes para excluir dominios
-tk.Label(frame_controles, text="Excluir dominios:").grid(row=1, column=0, padx=5, sticky="w")
+tk.Label(frame_controles, text="Excluir dominios:").grid(row=1, column=0, padx=5, sticky="nw")
 vars_dominios = {}
 frame_checks = tk.Frame(frame_controles)
 frame_checks.grid(row=1, column=1, padx=5, sticky="w")
@@ -111,14 +123,22 @@ entry_extra = tk.Entry(frame_controles, width=20)
 entry_extra.grid(row=2, column=1, padx=5, sticky="w")
 entry_extra.insert(0, "umayor.cl")
 
-# Checkbox separador punto
+# Opciones adicionales
 var_usar_punto = tk.BooleanVar(value=True)
 chk_punto = tk.Checkbutton(frame_controles, text="Usar punto entre nombre y apellido", variable=var_usar_punto)
-chk_punto.grid(row=3, column=0, columnspan=2, pady=5, sticky="w")
+chk_punto.grid(row=3, column=0, columnspan=2, pady=2, sticky="w")
+
+var_usar_numero = tk.BooleanVar(value=True)
+chk_numero = tk.Checkbutton(frame_controles, text="Agregar número aleatorio", variable=var_usar_numero)
+chk_numero.grid(row=4, column=0, columnspan=2, pady=2, sticky="w")
+
+var_usar_anio = tk.BooleanVar(value=False)
+chk_anio = tk.Checkbutton(frame_controles, text="Agregar año aleatorio (1980-2023)", variable=var_usar_anio)
+chk_anio.grid(row=5, column=0, columnspan=2, pady=2, sticky="w")
 
 # Botón regenerar
 btn_regenerar = tk.Button(frame_controles, text="Reiniciar lista", command=mostrar_datos)
-btn_regenerar.grid(row=4, column=0, columnspan=2, pady=10)
+btn_regenerar.grid(row=6, column=0, columnspan=2, pady=10)
 
 frame_lista = tk.Frame(root)
 frame_lista.pack(pady=10, fill="both", expand=True)
